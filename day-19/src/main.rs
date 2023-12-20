@@ -1,5 +1,5 @@
 use clap::Parser;
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::fs::File;
 use std::io::{prelude::*, BufReader};
 
@@ -132,5 +132,58 @@ fn main() -> std::io::Result<()> {
         });
 
     println!("Part 1: {}", sum);
+
+    type Parts = HashMap<&'static str, std::ops::Range<u32>>;
+    let part_attr = HashMap::<&str, std::ops::Range<u32>>::from([
+        ("x", 1..4001),
+        ("m", 1..4001),
+        ("a", 1..4001),
+        ("s", 1..4001),
+    ]);
+    let mut sum = 0;
+    let mut to_visit = VecDeque::<(&NodeValue, Parts)>::new();
+    to_visit.push_back((workflows.get("in").unwrap(), part_attr));
+    while let Some((node, attrs)) = to_visit.pop_front() {
+        match node {
+            NodeValue::Leaf(leaf) => match leaf.as_str() {
+                "R" => continue,
+                "A" => {
+                    sum += attrs.values().fold(1, |acc, v| {
+                        println!("{:?}", v);
+                        acc * v.len()
+                    });
+                    println!("{}", sum);
+                    continue;
+                }
+                _ => {
+                    to_visit.push_back((workflows.get(leaf).unwrap(), attrs));
+                }
+            },
+            NodeValue::Node(node) => {
+                let v = attrs
+                    .get(&node.attr.as_str())
+                    .expect("missing part attribute");
+                if v.start < node.value {
+                    let mut attrs = attrs.clone();
+                    let v = attrs
+                        .get_mut(&node.attr.as_str())
+                        .expect("missing part attribute");
+                    v.end = v.end.min(node.value);
+                    to_visit.push_back((&node.less, attrs));
+                }
+                if v.end > node.value {
+                    let mut attrs = attrs.clone();
+                    let v = attrs
+                        .get_mut(&node.attr.as_str())
+                        .expect("missing part attribute");
+                    v.start = v.start.max(node.value);
+                    to_visit.push_back((&node.eqmore, attrs));
+                }
+            }
+        }
+    }
+
+    println!("Part 2: {}", sum);
+
     Ok(())
 }
